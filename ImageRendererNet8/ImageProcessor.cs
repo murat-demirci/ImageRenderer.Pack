@@ -3,11 +3,14 @@ using Microsoft.Extensions.Options;
 using SkiaSharp;
 using System.Collections.Concurrent;
 
-namespace ImageRenderer;
+namespace ImageRenderer8._0;
 public sealed class ImageProcessor
 {
     private readonly ImageProcessorOptions _options;
-    public ImageProcessor(IOptions<ImageProcessorOptions> options) => _options = options.Value;
+    public ImageProcessor(IOptions<ImageProcessorOptions> options)
+    {
+        _options = options.Value;
+    }
 
     #region Upload Proccess
     public async Task<(bool, string)> SaveImageToLocalAsync(
