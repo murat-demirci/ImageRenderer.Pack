@@ -1,6 +1,6 @@
 ﻿using SkiaSharp;
 
-namespace ImageRenderer8._0;
+namespace ImageRendererNet8;
 public enum Quality
 {
     Low = 25,
@@ -16,4 +16,9 @@ public enum FileExtension
     Jpeg = SKEncodedImageFormat.Jpeg,
     Gif = SKEncodedImageFormat.Gif,
     Ico = SKEncodedImageFormat.Ico
+}
+public enum ProccessType
+{
+    Upload,
+    Delete
 }

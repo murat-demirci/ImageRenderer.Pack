@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-namespace ImageRendererNet8;
+namespace ImageRendererNet9;
 public static class ImageRendererDI
 {
     public static void AddImageRenderer(this IServiceCollection services, string[]? allowwedFileExtension = null, long maxFileSizeInMb = 0)

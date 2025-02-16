@@ -1,32 +1,29 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using SkiaSharp;
-using System.Collections.Concurrent;
 
-namespace ImageRenderer8._0;
-public sealed class ImageProcessor
+namespace ImageRendererNet8;
+public sealed class ImageProcessor(IOptions<ImageProcessorOptions> options)
 {
-    private readonly ImageProcessorOptions _options;
-    public ImageProcessor(IOptions<ImageProcessorOptions> options)
-    {
-        _options = options.Value;
-    }
+    private readonly ImageProcessorOptions _options = options.Value;
+    private readonly ImageResponse _imageResponse = new();
+    private readonly object lockObject = new();
 
     #region Upload Proccess
-    public async Task<(bool, string)> SaveImageToLocalAsync(
+    public async Task<ImageResponse> SaveImageToLocalAsync(
         IFormFile file,
-        string fileName,
         string path = "Images",
+        string fileName = "",
         Quality quality = Quality.High,
         FileExtension fileExtension = FileExtension.Webp,
         int widthSize = 1024,
         int heightSize = 1024
     )
     {
-        var isValid = CheckFile(file);
-        if (!isValid.Item1)
+        var fileControl = CheckFile(file);
+        if (fileControl.FailedImagesInfo.Count > 0)
         {
-            return isValid;
+            return fileControl;
         }
 
         try
@@ -44,7 +41,7 @@ public sealed class ImageProcessor
             using var resized = original.Resize(new SKImageInfo(widthSize, heightSize), options);
 
             if (resized == null)
-                return (false, "Resizing failed.");
+                return _imageResponse.SetFailedRepsone(fileName: file.FileName, message: "Resizing failed.");
 
             using var image = SKImage.FromBitmap(resized);
 
@@ -52,52 +49,46 @@ public sealed class ImageProcessor
             await using var output = new FileStream(Path.Combine(path, imageName), FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true);
             await output.WriteAsync(encodedData.ToArray().AsMemory(0, (int)encodedData.Size));
 
-            return (true, Path.Combine(path, imageName).ToString());
+            return _imageResponse.SetSuccessResponse($"{path}/{imageName}");
         }
         catch (Exception ex)
         {
-            return (false, $"UnexpectedError: {ex.Message}");
+            return _imageResponse.SetFailedRepsone(fileName: file.FileName, message: $"ERR_500: {ex.Message}");
         }
     }
 
-    public async Task<(bool, IEnumerable<string>)> SaveImageToLocalAsync(
+    public async Task<ImageResponse> SaveImageToLocalAsync(
         IEnumerable<IFormFile> files,
-        string fileName,
         string path = "Images",
+        string fileName = "",
         Quality quality = Quality.High,
         FileExtension fileExtension = FileExtension.Webp,
         int widthSize = 1024,
         int heightSize = 1024
     )
     {
-        if (!files.Any())
-            return (false, new[] { "File is empty." });
+        if (files is null || !files.Any())
+            return _imageResponse.SetFailedRepsone(message: "Could not be empty");
 
         var imageResultList = new List<(SKData, string)>();
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd");
         var errorMessages = new List<string>();
-        var lockObject = new object();
 
         try
         {
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
 
-            await Task.WhenAll(files.Select(async file =>
+            await Task.WhenAll(files.Select(async (file, index) =>
             {
                 try
                 {
-                    var isValid = CheckFile(file);
-                    if (!isValid.Item1)
+                    lock (lockObject)
                     {
-                        lock (lockObject)
-                        {
-                            errorMessages.Add(isValid.Item2);
-                        }
-                        return;
+                        CheckFile(file);
                     }
 
-                    var imageName = $"{widthSize}x{heightSize}_{fileName}_{timestamp}_{Guid.NewGuid():N}.{fileExtension.ToString().ToLower()}";
+                    var imageName = $"{widthSize}x{heightSize}_{fileName + index}_{timestamp}_{Guid.NewGuid():N}.{fileExtension.ToString().ToLower()}";
                     var filePath = Path.Combine(path, imageName);
 
                     await using var stream = file.OpenReadStream();
@@ -110,7 +101,7 @@ public sealed class ImageProcessor
                     {
                         lock (lockObject)
                         {
-                            errorMessages.Add($"Resizing failed for file '{file.FileName}'.");
+                            _imageResponse.SetFailedRepsone(fileName: file.FileName, message: "Resizing failed.");
                         }
                         return;
                     }
@@ -125,62 +116,56 @@ public sealed class ImageProcessor
 
                     lock (lockObject)
                     {
-                        imageResultList.Add((encodedData, imageName));
+                        _imageResponse.SetSuccessResponse($"{path}/{imageName}");
                     }
                 }
                 catch (Exception ex)
                 {
                     lock (lockObject)
                     {
-                        errorMessages.Add($"An error occurred while processing file '{file.FileName}': {ex.Message}");
+                        _imageResponse.SetFailedRepsone(fileName: file.FileName, message: $"ERR_500: {ex.Message}");
                     }
                 }
             }));
 
-            if (errorMessages.Any())
-            {
-                return (false, errorMessages.ToArray());
-            }
-
-            return (true, imageResultList.Select(x => $"{path}/{x.Item2}"));
+            return _imageResponse;
         }
         catch (Exception ex)
         {
-            return (false, new[] { $"UnexpectedError: {ex.Message}" });
+            return _imageResponse.SetFailedRepsone(message: $"ERR_500: {ex.Message}");
         }
     }
     #endregion
 
     #region Delete Proccess
-    public async Task<bool> DeleteImageAsync(string filePath)
+    public async Task<ImageResponse> DeleteImageAsync(string filePath)
     {
         try
         {
             if (File.Exists(filePath))
             {
                 await Task.Run(() => File.Delete(filePath));
-                return true;
+                lock (lockObject)
+                    return _imageResponse.SetSuccessResponse(Path.GetFileName(filePath));
             }
-            return false;
+            lock (lockObject)
+                return _imageResponse.SetFailedRepsone(fileName: Path.GetFileName(filePath), message: $"Not Found");
         }
         catch (Exception ex)
         {
-            // Log the exception if necessary
-            return false;
+            lock (lockObject)
+                return _imageResponse.SetFailedRepsone(fileName: Path.GetFileName(filePath), message: $"ERR_500: {ex.Message}");
         }
     }
 
-    public async Task<IEnumerable<(bool, string)>> DeleteImagesAsync(IEnumerable<string> filePaths)
+    public async Task<ImageResponse> DeleteImagesAsync(IEnumerable<string> filePaths)
     {
-        var results = new ConcurrentBag<(bool, string)>();
-
         await Task.WhenAll(filePaths.Select(async filePath =>
         {
-            var result = await DeleteImageAsync(filePath);
-            results.Add((result, filePath));
+            await DeleteImageAsync(filePath);
         }));
 
-        return results;
+        return _imageResponse;
     }
     #endregion
 
@@ -192,22 +177,22 @@ public sealed class ImageProcessor
         return _options.AllowwedFileExtension.Contains(fileExtension.TrimStart('.'));
     }
 
-    private (bool, string) CheckFile(IFormFile file)
+    private ImageResponse CheckFile(IFormFile file)
     {
-        if (file == null)
-            return (false, "File is empty");
+        if (file is null)
+            return _imageResponse.SetFailedRepsone(message: "Could not be empty");
 
-        if (file.Length > _options.MaxFileSizeInMb)
+        if (_options.MaxFileSizeInMb is not 0 && file.Length > _options.MaxFileSizeInMb)
         {
-            return (false, $"File '{file.FileName}' exceeds the maximum allowed size of {_options.MaxFileSizeInMb / (1024 * 1024)} MB.");
+            return _imageResponse.SetFailedRepsone(fileName: file.FileName, message: $"Exceeds the maximum allowed size of {_options.MaxFileSizeInMb / (1024 * 1024)} MB.");
         }
 
         if (!IsSupportedImageFormat(Path.GetExtension(file.FileName)))
         {
-            return (false, $"File '{file.FileName}' has not supported file extension");
+            return _imageResponse.SetFailedRepsone(fileName: file.FileName, message: $"Not supported file extension");
         }
 
-        return (true, "");
+        return _imageResponse;
     }
     #endregion
 }

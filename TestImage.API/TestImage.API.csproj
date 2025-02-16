@@ -7,9 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ImageRenderer" Version="1.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.0.12" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="7.2.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="7.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ImageRendererNet9\ImageRendererNet9.csproj" />
   </ItemGroup>
 
 </Project>

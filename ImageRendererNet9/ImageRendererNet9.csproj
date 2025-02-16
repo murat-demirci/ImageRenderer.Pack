@@ -1,16 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Title>ImageRendererNet8</Title>
+    <Title>ImageRendererNet9</Title>
     <Authors>MuratDemirci</Authors>
     <Description>Image renderer and resizer</Description>
     <RepositoryUrl>https://github.com/murat-demirci/ImageRenderer.Pack</RepositoryUrl>
-    <PackageTags>image, net8, fromfile, upload, delete, resize, render</PackageTags>
+    <PackageTags>image, net9, fromfile, upload, delete, resize, render</PackageTags>
     <PackageLicenseFile>license\LICENSE.txt</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+	  <IsPackable>true</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,5 +27,4 @@
       <Pack>True</Pack>
     </None>
   </ItemGroup>
-
 </Project>
