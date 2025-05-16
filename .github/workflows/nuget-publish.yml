@@ -23,14 +23,15 @@ jobs:
       - name: Extract unique target frameworks
         id: extract-frameworks
         run: |
-          frameworks=$(grep -hoPm1 "<TargetFramework>(.*?)</TargetFramework>" $(find . -name "*.csproj" -not -path "*Test*") | sed -E 's/<\/?TargetFramework>//g' | sort -u)
+          frameworks=$(grep -hoP "<TargetFramework>(.*?)</TargetFramework>" $(find . -name "*.csproj" -not -path "*Test*") | sed -E 's/<\/?TargetFramework>//g' | sort -u | paste -sd "," -)
           echo "frameworks=$frameworks" >> $GITHUB_OUTPUT
 
       - name: Setup all required .NET SDKs
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
-            ${{ steps.extract-frameworks.outputs.frameworks }}
+            8.0.x
+            9.0.x
 
       - name: Restore, Build, Pack & Push
         env:
