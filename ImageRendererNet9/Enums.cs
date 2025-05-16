@@ -15,7 +15,8 @@ public enum FileExtension
     Png = SKEncodedImageFormat.Png,
     Jpeg = SKEncodedImageFormat.Jpeg,
     Gif = SKEncodedImageFormat.Gif,
-    Ico = SKEncodedImageFormat.Ico
+    Ico = SKEncodedImageFormat.Ico,
+    Jpg = SKEncodedImageFormat.Jpeg,
 }
 
 public enum ProccessType
