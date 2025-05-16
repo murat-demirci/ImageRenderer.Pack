@@ -23,14 +23,15 @@ jobs:
       - name: Extract unique target frameworks
         id: extract-frameworks
         run: |
-          frameworks=$(grep -hoPm1 "<TargetFramework>(.*?)</TargetFramework>" $(find . -name "*.csproj" -not -path "*Test*") | sed -E 's/<\/?TargetFramework>//g' | sort -u)
+          frameworks=$(grep -hoP "<TargetFramework>(.*?)</TargetFramework>" $(find . -name "*.csproj" -not -path "*Test*") | sed -E 's/<\/?TargetFramework>//g' | sort -u | paste -sd "," -)
           echo "frameworks=$frameworks" >> $GITHUB_OUTPUT
 
       - name: Setup all required .NET SDKs
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
-            ${{ steps.extract-frameworks.outputs.frameworks }}
+            8.0.x
+            9.0.x
 
       - name: Restore, Build, Pack & Push
         env:
@@ -41,7 +42,7 @@ jobs:
             echo "Processing $proj"
             dotnet restore "$proj"
             dotnet build "$proj" --configuration Release
-            dotnet pack "$proj" --configuration Release --output out --no-build
+            dotnet pack "$proj" --configuration Release --output out --no-build /p:Version=1.0.$GITHUB_RUN_NUMBER
           done < <(echo "${{ steps.find-projects.outputs.projects }}")
 
           dotnet nuget push out/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY"
