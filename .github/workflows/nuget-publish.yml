@@ -42,7 +42,7 @@ jobs:
             echo "Processing $proj"
             dotnet restore "$proj"
             dotnet build "$proj" --configuration Release
-            dotnet pack "$proj" --configuration Release --output out --no-build
+            dotnet pack "$proj" --configuration Release --output out --no-build /p:Version=1.0.$GITHUB_RUN_NUMBER
           done < <(echo "${{ steps.find-projects.outputs.projects }}")
 
           dotnet nuget push out/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY"
