@@ -1,0 +1,47 @@
+name: Auto Publish NuGet Packages
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Find all .csproj files
+        id: find-projects
+        run: |
+          echo "projects<<EOF" >> $GITHUB_OUTPUT
+          find . -type f -name "*.csproj" -not -path "*Test*" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Extract unique target frameworks
+        id: extract-frameworks
+        run: |
+          frameworks=$(grep -hoPm1 "<TargetFramework>(.*?)</TargetFramework>" $(find . -name "*.csproj" -not -path "*Test*") | sed -E 's/<\/?TargetFramework>//g' | sort -u)
+          echo "frameworks=$frameworks" >> $GITHUB_OUTPUT
+
+      - name: Setup all required .NET SDKs
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            ${{ steps.extract-frameworks.outputs.frameworks }}
+
+      - name: Restore, Build, Pack & Push
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          mkdir -p out
+          while IFS= read -r proj; do
+            echo "Processing $proj"
+            dotnet restore "$proj"
+            dotnet build "$proj" --configuration Release
+            dotnet pack "$proj" --configuration Release --output out --no-build
+          done < <(echo "${{ steps.find-projects.outputs.projects }}")
+
+          dotnet nuget push out/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY"
